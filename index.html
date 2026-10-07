@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Misi Penyelamatan Aljabar: Kahoot! Showdown</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX CSS & JS for Math Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at center, #3c128e 0%, #25076b 60%, #130048 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        .kahoot-card {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 0 rgba(0, 0, 0, 0.25);
+        }
+        .kahoot-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 0 rgba(0, 0, 0, 0.3);
+            filter: brightness(1.1);
+        }
+        .kahoot-card:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        /* 4 Kahoot Answer Card Colors */
+        .card-red { background-color: #e21b3c; }
+        .card-blue { background-color: #1368ce; }
+        .card-yellow { background-color: #d89e00; }
+        .card-green { background-color: #26890c; }
+
+        /* Custom Animations */
+        @keyframes pulseGlow {
+            0%, 100% { filter: drop-shadow(0 0 15px rgba(235, 87, 87, 0.6)); }
+            50% { filter: drop-shadow(0 0 25px rgba(242, 201, 76, 0.9)); }
+        }
+        .pulse-glow { animation: pulseGlow 2s infinite; }
+
+        .grid-cell {
+            perspective: 1000px;
+            cursor: pointer;
+        }
+        .grid-inner {
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .grid-cell.flipped .grid-inner {
+            transform: rotateY(180deg);
+        }
+        .grid-front, .grid-back {
+            backface-visibility: hidden;
+        }
+        .grid-back {
+            transform: rotateY(180deg);
+        }
+
+        /* KaTeX Spacing Polish */
+        .katex {
+            font-size: 1.2em !important;
+            padding: 0 0.15em;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #130048;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #46178f;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen justify-between items-center p-3 sm:p-6 relative">
+
+    <!-- Top Header Navigation -->
+    <header class="w-full max-w-6xl flex justify-between items-center bg-[#130048]/80 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-purple-500/30 shadow-2xl z-20">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-r from-amber-400 to-yellow-500 p-2.5 rounded-xl text-black font-black text-xl tracking-wider shadow-lg flex items-center gap-2">
+                <span>⚖️</span>
+                <span class="hidden sm:inline">ALJABAR</span> SHOWDOWN
+            </div>
+            <span id="levelBadge" class="hidden md:inline-block px-3 py-1 bg-purple-900/80 border border-purple-400/50 text-purple-200 rounded-full text-xs font-bold uppercase tracking-widest">
+                Level 1: Dasar PLSV
+            </span>
+        </div>
+
+        <!-- Audio Control & Sound Toggle -->
+        <div class="flex items-center gap-2 sm:gap-4">
+            <button id="btnSoundToggle" onclick="toggleAudio()" class="bg-purple-800/80 hover:bg-purple-700 text-purple-100 p-2.5 sm:px-4 sm:py-2 rounded-xl text-sm font-bold flex items-center gap-2 border border-purple-500/40 transition">
+                <span id="soundIcon">🔊</span>
+                <span class="hidden sm:inline" id="soundText">Musik: ON</span>
+            </button>
+            <button onclick="openGridModal()" class="bg-amber-500 hover:bg-amber-400 text-black px-3.5 py-2 rounded-xl text-sm font-extrabold flex items-center gap-2 shadow-lg transition">
+                <span>🎁</span>
+                <span>Grid 5x5</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="w-full max-w-6xl my-4 flex-grow flex flex-col justify-center items-center z-10 relative">
+
+        <!-- ================= 1. START / SETUP SCREEN ================= -->
+        <div id="startScreen" class="w-full bg-[#1e0750]/90 backdrop-blur-xl border border-purple-500/40 rounded-3xl p-6 sm:p-10 shadow-2xl text-center flex flex-col items-center max-w-3xl">
+            <div class="inline-block bg-purple-900/60 text-purple-300 border border-purple-400/30 px-4 py-1.5 rounded-full text-sm font-bold mb-4">
+                🎮 Mode Interaktif Kelas - Matematika SMP Kelas 7
+            </div>
+            <h1 class="text-3xl sm:text-5xl font-black mb-3 bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-amber-200 to-yellow-500 tracking-tight">
+                Misi Penyelamatan Aljabar
+            </h1>
+            <p class="text-purple-200 text-base sm:text-lg mb-8 max-w-xl leading-relaxed">
+                Kuasai konsep <strong class="text-amber-300">Timbangan Seimbang</strong> untuk menyelesaikan Persamaan Linear Satu Variabel (PLSV) bersama tim pilihanmu!
+            </p>
+
+            <!-- Team Names Input -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full mb-8">
+                <div class="bg-[#130048] p-4 rounded-2xl border-2 border-red-500/50 flex flex-col gap-2 text-left shadow-lg">
+                    <label class="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span> Kelompok A (Tim Kiri)
+                    </label>
+                    <input type="text" id="teamANameInput" value="Kelompok Alpha" class="bg-purple-950/80 border border-red-400/40 text-white font-bold p-3 rounded-xl focus:outline-none focus:border-red-400 text-lg">
+                </div>
+                <div class="bg-[#130048] p-4 rounded-2xl border-2 border-blue-500/50 flex flex-col gap-2 text-left shadow-lg">
+                    <label class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> Kelompok B (Tim Kanan)
+                    </label>
+                    <input type="text" id="teamBNameInput" value="Kelompok Beta" class="bg-purple-950/80 border border-blue-400/40 text-white font-bold p-3 rounded-xl focus:outline-none focus:border-blue-400 text-lg">
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white text-xl font-black px-12 py-4 rounded-2xl shadow-xl hover:shadow-green-500/30 transition transform hover:-translate-y-1 active:translate-y-0">
+                🚀 MULAI SHOWDOWN!
+            </button>
+        </div>
+
+        <!-- ================= 2. GAMEPLAY QUESTION SCREEN ================= -->
+        <div id="gameScreen" class="w-full hidden flex-col gap-4">
+            
+            <!-- Top Team Scoreboard & Turn Bar -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+                
+                <!-- Team A Score -->
+                <div id="cardTeamA" class="bg-[#130048]/90 border-2 border-red-500/60 p-3 sm:p-4 rounded-2xl flex justify-between items-center shadow-lg transition">
+                    <div>
+                        <span class="text-xs font-bold text-red-400 uppercase tracking-wider">Kelompok A</span>
+                        <h3 id="displayTeamA" class="font-black text-lg text-white truncate max-w-[150px]">Kelompok Alpha</h3>
+                    </div>
+                    <div id="scoreTeamA" class="text-3xl font-black text-amber-400">0</div>
+                </div>
+
+                <!-- Timer & Turn Indicator -->
+                <div class="bg-[#1e0750] border border-purple-500/40 p-3 rounded-2xl flex flex-col items-center justify-center shadow-lg">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-purple-300 font-bold uppercase tracking-wider">Waktu Tersisa:</span>
+                        <div id="timerDisplay" class="text-2xl font-black text-amber-300 bg-purple-950/80 px-4 py-1 rounded-xl border border-amber-400/40">
+                            60s
+                        </div>
+                    </div>
+                    <div id="turnIndicator" class="mt-1 text-xs font-extrabold text-green-400 tracking-wide uppercase">
+                        🎯 Turn: Kelompok A
+                    </div>
+                </div>
+
+                <!-- Team B Score -->
+                <div id="cardTeamB" class="bg-[#130048]/90 border-2 border-blue-500/60 p-3 sm:p-4 rounded-2xl flex justify-between items-center shadow-lg transition">
+                    <div class="text-right">
+                        <span class="text-xs font-bold text-blue-400 uppercase tracking-wider">Kelompok B</span>
+                        <h3 id="displayTeamB" class="font-black text-lg text-white truncate max-w-[150px]">Kelompok Beta</h3>
+                    </div>
+                    <div id="scoreTeamB" class="text-3xl font-black text-amber-400">0</div>
+                </div>
+            </div>
+
+            <!-- Question Card Box -->
+            <div class="bg-[#1e0750]/90 border-2 border-purple-400/40 rounded-3xl p-6 sm:p-8 shadow-2xl text-center relative overflow-hidden flex flex-col items-center min-h-[200px] justify-center">
+                <div class="flex items-center gap-2 mb-3">
+                    <span id="questionNumBadge" class="bg-amber-400 text-black font-extrabold text-xs px-3 py-1 rounded-full uppercase">
+                        Soal 1 dari 10
+                    </span>
+                    <span id="questionPointsBadge" class="bg-purple-800 text-purple-200 font-bold text-xs px-3 py-1 rounded-full border border-purple-500/40">
+                        +100 Poin
+                    </span>
+                </div>
+
+                <!-- KaTeX Rendered Question Text -->
+                <div id="questionText" class="text-xl sm:text-2xl md:text-3xl font-bold leading-relaxed text-white max-w-4xl">
+                    <!-- Dynamic Question Text -->
+                </div>
+            </div>
+
+            <!-- Active Responding Team Selector Switcher -->
+            <div class="flex justify-center items-center gap-3 bg-[#130048]/80 p-2 rounded-2xl border border-purple-500/30 max-w-md mx-auto my-1">
+                <span class="text-xs font-bold text-purple-300">Pilih Tim Menjawab:</span>
+                <button id="btnSelectTeamA" onclick="setActiveTeam('A')" class="px-4 py-1.5 rounded-xl text-xs font-black transition bg-red-600 text-white shadow">
+                    Kelompok A
+                </button>
+                <button id="btnSelectTeamB" onclick="setActiveTeam('B')" class="px-4 py-1.5 rounded-xl text-xs font-black transition bg-purple-900 text-purple-300 hover:text-white">
+                    Kelompok B
+                </button>
+            </div>
+
+            <!-- 4-Color Answer Choice Cards (Kahoot Style) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                <!-- Red Triangle Card -->
+                <button onclick="selectOption(0)" class="kahoot-card card-red p-5 sm:p-6 rounded-2xl flex items-center gap-4 text-left w-full">
+                    <div class="w-12 h-12 bg-black/20 rounded-xl flex items-center justify-center text-2xl font-black text-white shrink-0">
+                        ▲
+                    </div>
+                    <div id="option0" class="text-lg sm:text-xl font-bold text-white flex-grow">
+                        <!-- Option A Content -->
+                    </div>
+                </button>
+
+                <!-- Blue Diamond Card -->
+                <button onclick="selectOption(1)" class="kahoot-card card-blue p-5 sm:p-6 rounded-2xl flex items-center gap-4 text-left w-full">
+                    <div class="w-12 h-12 bg-black/20 rounded-xl flex items-center justify-center text-2xl font-black text-white shrink-0">
+                        ◆
+                    </div>
+                    <div id="option1" class="text-lg sm:text-xl font-bold text-white flex-grow">
+                        <!-- Option B Content -->
+                    </div>
+                </button>
+
+                <!-- Yellow Circle Card -->
+                <button onclick="selectOption(2)" class="kahoot-card card-yellow p-5 sm:p-6 rounded-2xl flex items-center gap-4 text-left w-full">
+                    <div class="w-12 h-12 bg-black/20 rounded-xl flex items-center justify-center text-2xl font-black text-white shrink-0">
+                        ●
+                    </div>
+                    <div id="option2" class="text-lg sm:text-xl font-bold text-white flex-grow">
+                        <!-- Option C Content -->
+                    </div>
+                </button>
+
+                <!-- Green Square Card -->
+                <button onclick="selectOption(3)" class="kahoot-card card-green p-5 sm:p-6 rounded-2xl flex items-center gap-4 text-left w-full">
+                    <div class="w-12 h-12 bg-black/20 rounded-xl flex items-center justify-center text-2xl font-black text-white shrink-0">
+                        ■
+                    </div>
+                    <div id="option3" class="text-lg sm:text-xl font-bold text-white flex-grow">
+                        <!-- Option D Content -->
+                    </div>
+                </button>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ================= 3. CONCEPT REVIEW SLIDE MODAL (BALANCE SCALE) ================= -->
+    <div id="reviewModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-[#1e0750] border-2 border-purple-400/60 w-full max-w-4xl rounded-3xl p-6 sm:p-8 shadow-2xl relative my-8">
+            
+            <!-- Result Banner -->
+            <div id="reviewResultHeader" class="text-center p-4 rounded-2xl mb-6 font-black text-2xl sm:text-3xl flex items-center justify-center gap-3">
+                <!-- Correct / Incorrect Status -->
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                
+                <!-- Left: Interactive Visual SVG Balance Scale -->
+                <div class="lg:col-span-5 bg-[#130048] border border-purple-500/40 rounded-2xl p-4 flex flex-col items-center justify-center relative min-h-[260px] shadow-inner">
+                    <h4 class="text-xs font-bold text-amber-300 uppercase tracking-widest mb-2">
+                        ⚖️ VISUAL TIMBANGAN SEIMBANG
+                    </h4>
+
+                    <!-- Balance Scale SVG Element -->
+                    <div class="w-full max-w-[280px] my-2">
+                        <svg viewBox="0 0 300 200" class="w-full h-auto drop-shadow-md">
+                            <!-- Base Pivot -->
+                            <polygon points="150,130 130,180 170,180" fill="#6b21a8" stroke="#a855f7" stroke-width="3"/>
+                            <rect x="110" y="180" width="80" height="10" rx="5" fill="#4c1d95"/>
+                            
+                            <!-- Balance Beam (Rotates based on balance state) -->
+                            <g id="scaleBeamGroup" class="transition-transform duration-700 origin-[150px_130px]">
+                                <!-- Main Beam Line -->
+                                <line x1="30" y1="130" x2="270" y2="130" stroke="#f59e0b" stroke-width="6" stroke-linecap="round"/>
+                                <circle cx="150" cy="130" r="8" fill="#fbbf24"/>
+
+                                <!-- Left Pan Strings & Tray -->
+                                <line x1="30" y1="130" x2="10" y2="160" stroke="#cbd5e1" stroke-width="2"/>
+                                <line x1="30" y1="130" x2="50" y2="160" stroke="#cbd5e1" stroke-width="2"/>
+                                <path d="M 5,160 Q 30,175 55,160 Z" fill="#ef4444" stroke="#f87171" stroke-width="2"/>
+                                <text x="30" y="152" font-size="10" font-weight="bold" fill="#ffffff" text-anchor="middle">Lengan Kiri</text>
+
+                                <!-- Right Pan Strings & Tray -->
+                                <line x1="270" y1="130" x2="250" y2="160" stroke="#cbd5e1" stroke-width="2"/>
+                                <line x1="270" y1="130" x2="290" y2="160" stroke="#cbd5e1" stroke-width="2"/>
+                                <path d="M 245,160 Q 270,175 295,160 Z" fill="#3b82f6" stroke="#60a5fa" stroke-width="2"/>
+                                <text x="270" y="152" font-size="10" font-weight="bold" fill="#ffffff" text-anchor="middle">Lengan Kanan</text>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <div class="text-xs text-purple-200 text-center font-medium bg-purple-950/80 px-3 py-1.5 rounded-lg border border-purple-500/30">
+                        Prinsip Utama: Perlakuan pada <strong>Lengan Kiri</strong> harus <strong>SAMA PERSIS</strong> dengan <strong>Lengan Kanan</strong>!
+                    </div>
+                </div>
+
+                <!-- Right: Easy-to-understand Explanation Steps -->
+                <div class="lg:col-span-7 flex flex-col justify-between gap-4">
+                    <div class="bg-[#130048]/80 border border-purple-500/30 p-4 rounded-2xl">
+                        <h4 class="text-sm font-extrabold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                            💡 Pembahasan & Langkah Penyelesaian:
+                        </h4>
+                        <div id="reviewExplanationContent" class="space-y-3 text-sm text-purple-100 leading-relaxed">
+                            <!-- Injected step-by-step math explanation -->
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex flex-col sm:flex-row gap-3 justify-end mt-2">
+                        <button onclick="openGridModalFromReview()" class="bg-amber-500 hover:bg-amber-400 text-black px-6 py-3 rounded-xl font-extrabold text-sm shadow-lg transition flex items-center justify-center gap-2">
+                            🎁 Buka Kotak Kejutan Grid 5x5
+                        </button>
+                        <button onclick="nextQuestion()" class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 text-white px-8 py-3 rounded-xl font-black text-sm shadow-lg transition flex items-center justify-center gap-2">
+                            Lanjut ke Soal Berikutnya ➔
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ================= 4. ANSWER CONFIRMATION MODAL ================= -->
+    <div id="confirmModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#1e0750] border-2 border-purple-400/80 rounded-3xl p-6 max-w-md w-full text-center shadow-2xl">
+            <div class="text-4xl mb-2">🤔</div>
+            <h3 class="text-xl font-black text-white mb-2">Konfirmasi Jawaban Tim</h3>
+            <p id="confirmModalText" class="text-purple-200 text-sm mb-6">
+                Apakah <span id="confirmTeamName" class="font-bold text-amber-300">Kelompok Alpha</span> yakin memilih jawaban ini?
+            </p>
+            <div class="flex gap-3 justify-center">
+                <button onclick="closeConfirmModal()" class="bg-purple-900 hover:bg-purple-800 text-purple-200 px-5 py-2.5 rounded-xl font-bold text-sm">
+                    Batal
+                </button>
+                <button onclick="processConfirmedAnswer()" class="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2.5 rounded-xl font-black text-sm shadow-lg">
+                    Ya, Yakin! Kunci Jawaban
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= 5. HYBRID 5x5 STRATEGY GRID MODAL ================= -->
+    <div id="gridModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-[#1e0750] border-2 border-amber-400/60 w-full max-w-3xl rounded-3xl p-6 shadow-2xl relative my-6 text-center">
+            
+            <div class="flex justify-between items-center mb-4 border-b border-purple-500/30 pb-3">
+                <div>
+                    <h3 class="text-2xl font-black text-amber-300 flex items-center gap-2">
+                        🎁 Kotak Kejutan Strategi 5x5
+                    </h3>
+                    <p class="text-xs text-purple-200">Pilih salah satu kotak rahasia untuk mendapatkan bonus poin atau kejutan!</p>
+                </div>
+                <button onclick="closeGridModal()" class="bg-purple-900 hover:bg-purple-800 text-purple-200 w-8 h-8 rounded-full font-black text-sm">
+                    ✕
+                </button>
+            </div>
+
+            <!-- 5x5 Grid Board -->
+            <div id="gridBoardContainer" class="grid grid-cols-5 gap-2.5 my-4 max-w-lg mx-auto">
+                <!-- 25 Dynamic Cells -->
+            </div>
+
+            <!-- Grid Event Message Box -->
+            <div id="gridResultBox" class="hidden bg-purple-950 border border-amber-400/40 p-4 rounded-2xl mt-4 text-sm font-bold text-amber-200 animate-bounce">
+                <!-- Message after tile flip -->
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ================= 6. FINAL PODIUM VICTORY SCREEN ================= -->
+    <div id="victoryModal" class="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#1e0750] border-2 border-yellow-400/80 w-full max-w-2xl rounded-3xl p-8 shadow-2xl text-center relative flex flex-col items-center">
+            
+            <div class="text-5xl mb-2 pulse-glow">🏆</div>
+            <h2 class="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-200 to-yellow-500 mb-2">
+                PEMENANG ALJABAR SHOWDOWN!
+            </h2>
+            <p class="text-purple-200 text-sm mb-8">Selamat kepada kedua tim atas perjuangan luar biasa!</p>
+
+            <!-- Winner Podium -->
+            <div class="flex items-end justify-center gap-4 w-full max-w-md mb-8">
+                <!-- Runner Up -->
+                <div class="flex flex-col items-center flex-1">
+                    <span id="p2Name" class="text-xs font-bold text-purple-200 mb-1 truncate max-w-[100px]">Kelompok Beta</span>
+                    <div id="p2Score" class="text-sm font-black text-amber-300 mb-1">0 Poin</div>
+                    <div class="w-full bg-slate-600 h-28 rounded-t-2xl flex items-center justify-center font-black text-2xl text-slate-300 border-t-4 border-slate-400">
+                        2nd
+                    </div>
+                </div>
+
+                <!-- 1st Place Winner -->
+                <div class="flex flex-col items-center flex-1">
+                    <span id="p1Name" class="text-sm font-black text-yellow-300 mb-1 truncate max-w-[120px]">Kelompok Alpha</span>
+                    <div id="p1Score" class="text-base font-black text-amber-300 mb-1">0 Poin</div>
+                    <div class="w-full bg-gradient-to-t from-amber-600 to-yellow-500 h-40 rounded-t-2xl flex items-center justify-center font-black text-3xl text-black border-t-4 border-yellow-300 shadow-xl">
+                        🥇 1st
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="restartGame()" class="bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black px-8 py-3 rounded-2xl shadow-lg hover:from-emerald-400 transition">
+                    🔄 Main Lagi
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ================= JAVASCRIPT GAME LOGIC ================= -->
+    <script>
+        // Global Game State
+        let gameState = {
+            teamAName: "Kelompok Alpha",
+            teamBName: "Kelompok Beta",
+            scoreA: 0,
+            scoreB: 0,
+            activeTeam: 'A', // 'A' or 'B'
+            currentQuestionIdx: 0,
+            timer: 60,
+            timerInterval: null,
+            audioMuted: false,
+            selectedOptionIdx: null,
+            gridItems: [],
+            openedGridCells: new Set()
+        };
+
+        // Web Audio API Audio Synthesizer
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (gameState.audioMuted) return;
+            initAudio();
+
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'click') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            } else if (type === 'correct') {
+                // Happy Chime
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const noteOsc = audioCtx.createOscillator();
+                    const noteGain = audioCtx.createGain();
+                    noteOsc.connect(noteGain);
+                    noteGain.connect(audioCtx.destination);
+                    noteOsc.type = 'triangle';
+                    noteOsc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                    noteGain.gain.setValueAtTime(0.2, now + idx * 0.08);
+                    noteGain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.3);
+                    noteOsc.start(now + idx * 0.08);
+                    noteOsc.stop(now + idx * 0.08 + 0.3);
+                });
+            } else if (type === 'wrong') {
+                // Buzz Sound
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(110, now + 0.25);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else if (type === 'tick') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(800, now);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.linearRampToValueAtTime(0.001, now + 0.04);
+                osc.start(now);
+                osc.stop(now + 0.04);
+            } else if (type === 'reveal') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.3);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+        }
+
+        function toggleAudio() {
+            gameState.audioMuted = !gameState.audioMuted;
+            const soundIcon = document.getElementById('soundIcon');
+            const soundText = document.getElementById('soundText');
+            if (gameState.audioMuted) {
+                soundIcon.textContent = '🔇';
+                soundText.textContent = 'Musik: OFF';
+            } else {
+                soundIcon.textContent = '🔊';
+                soundText.textContent = 'Musik: ON';
+                playSound('click');
+            }
+        }
+
+        // 10 Structured PLSV Questions Data
+        const questionsData = [
+            // Level 1: Easy (60s)
+            {
+                level: "Level 1: Dasar PLSV",
+                timeLimit: 60,
+                points: 100,
+                questionText: "Tentukan nilai $x$ yang memenuhi persamaan: $x + 7 = 15$",
+                options: [
+                    "$x = 8$",
+                    "$x = 22$",
+                    "$x = 105$",
+                    "$x = 7$"
+                ],
+                correctIdx: 0,
+                explanation: `
+                    <p><strong>Langkah 1 (Sifat Timbangan):</strong> Lengan Kiri berisi $x + 7$ dan Lengan Kanan berisi $15$.</p>
+                    <p><strong>Langkah 2:</strong> Agar variabel $x$ berdiri sendiri di Lengan Kiri, kita kurangi angka $7$ dari KEDUA lengan.</p>
+                    <p class="bg-purple-950 p-2 rounded border border-purple-500/40 font-mono text-amber-300 text-center">
+                        $(x + 7) - 7 = 15 - 7 \\Rightarrow x = 8$
+                    </p>
+                    <p><strong>Kesimpulan:</strong> Timbangan tetap seimbang saat nilai $x = 8$.</p>
+                `
+            },
+            {
+                level: "Level 1: Dasar PLSV",
+                timeLimit: 60,
+                points: 100,
+                questionText: "Berapakah nilai $x$ pada persamaan: $3x = 21$",
+                options: [
+                    "$x = 63$",
+                    "$x = 7$",
+                    "$x = 18$",
+                    "$x = 14$"
+                ],
+                correctIdx: 1,
+                explanation: `
+                    <p><strong>Langkah 1 (Sifat Timbangan):</strong> Di Lengan Kiri ada $3$ kantong identik $x$, dan Lengan Kanan ada $21$ kelereng.</p>
+                    <p><strong>Langkah 2:</strong> Untuk tahu isi $1$ kantong $x$, bagi isi KEDUA lengan timbangan dengan angka $3$.</p>
+                    <p class="bg-purple-950 p-2 rounded border border-purple-500/40 font-mono text-amber-300 text-center">
+                        $\\frac{3x}{3} = \\frac{21}{3} \\Rightarrow x = 7$
+                    </p>
+                    <p><strong>Kesimpulan:</strong> Setiap $1$ kantong $x$ bernilai $7$.</p>
+                `
+            },
+            {
+                level: "Level 1: Dasar PLSV",
+                timeLimit: 60,
+                points: 100,
+                questionText: "Hitunglah nilai $y$ pada persamaan berikut: $y - 9 = 4$",
+                options: [
+                    "$y = 5$",
+                    "$y = -5$",
+                    "$y = 13$",
+                    "$y = 36$"
+                ],
+                correctIdx: 2,
+                explanation: `
+                    <p><strong>Langkah 1 (Sifat Timbangan):</strong> Lengan Kiri berisi $(y - 9)$ dan Lengan Kanan berisi $4$.</p>
+                    <p><strong>Langkah 2:</strong> Netralkan pengurangan $-9$ dengan menambahkan $+9$ pada KEDUA lengan timbangan.</p>
+                    <p class="bg-purple-950 p-2 rounded border border-purple-500/40 font-mono text-amber-300 text-center">
+                        $(y - 9) + 9 = 4 + 9 \\Rightarrow y = 13$
+                    </p>
+                    <p><strong>Kesimpulan:</strong> Nilai $y$ yang memenuhi persamaan adalah $13$.</p>
+                `
+            },
+
+            // Level 2: Medium (90s)
+            {
+                level: "Level 2: Dua Langkah & Variabel",
+                timeLimit: 90,
+                points: 150,
+                questionText: "Tentukan nilai $x$ yang memenuhi persamaan: $2x + 5 = 17$",
+                options: [
+                    "$x = 12$",
+                    "$x = 6$",
+                    "$x = 11$",
+                    "$x = 22$"
+                ],
+                correctIdx: 1,
+                explanation: `
+                    <p><strong>Langkah 1 (Pindahkan Konstanta):</strong> Kurangi $5$ pada kedua lengan timbangan.</p>
+                    <p class="bg-purple-950 p-2 rounded border border-purple-500/40 font-mono text-amber-300 text-center">
+                        $2x + 5 - 5 = 17 - 5 \\Rightarrow 2x = 12$
+                    </p>
+                    <p><strong>Langkah 2 (Bagi Koefisien):</strong> Bagi kedua lengan timbangan dengan $2$.</p>
+                    <p class="bg-purple-950 p-2 rounded border border-purple-500/40 font-mono text-amber-300 text-center">
+                        $\\frac{2x}{2} = \\frac{12}{2} \\Rightarrow x = 6$
+                    </p>
+                `
+            },
+            {
+                level: "Level 2: Dua Langkah & Variabel",
+                timeLimit: 90,
+                points: 150,
+                questionText: "Carilah penyelesaian dari persamaan linear: $5x - 8 = 2x + 7$",
+                options: [
+                    "$x = 5$",
+                    "$x = 3$",
+                    "$x = 15$",
+                    "$x = 1$"
+                ],
+                correctIdx: 0,
+                explanation: `
+                    <p><strong>Langkah 1 (Kumpulkan Variabel):</strong> Kurangi $2x$ dari kedua lengan timbangan.</p>
+                    <p class="bg-purple-950 p-2 rounded border border-purple-500/40 font-mono text-amber-300 text-center">
+                        $5x - 2x - 8 = 7 \\Rightarrow 3x - 8 = 7$
+                    </p>
+                    <p><strong>Langkah 2 (Kumpulkan Angka):</strong> Tambahkan $8$ pada kedua lengan.</p>
+                    <p class="bg-purple-950 p-2 rounded border border-purple-500/40 font-mono text-amber-300 text-center">
+                        $3x = 7 + 8 \\Rightarrow 3x = 15 \\Rightarrow x = 5$
+                    </p>
+                `
+            },
+            {
+                level: "Level 2: Dua Langkah & Variabel",
+                timeLimit: 90,
+                points: 150,
+                questionText: "Perhatikan persamaan: $2x + 4 = x + 4$. Manakah penyelesaian $x$ yang benar?",
+                options: [
+                    "Tidak ada penyelesaian",
+                    "$x = 4$",
+                    "$x = 0$",
+                    "$x = 8$"
+                ],
+                correctIdx: 2,
+                explanation: `
+                    <p><strong>Langkah 1:</strong> Kurangi $4$ dari kedua lengan timbangan.</p>
+                    <p class="bg-purple-950 p-2 rounded border border-purple-500/40 font-mono text-amber-300 text-center">
+                        $2x = x$
+                    </p>
+                    <p><strong>Langkah 2:</strong> Kurangi $x$ dari kedua lengan timbangan.</p>
+                    <p class="bg-purple-950 p-2 rounded border border-purple-500/40 font-mono text-amber-300 text-center">
+                        $2x - x = 0 \\Rightarrow x = 0$
+                    </p>
+                    <p><strong>Uji Kebenaran:</strong> $2(0) + 4 = 0 + 4 \\Rightarrow 4 = 4$ (Benar/Seimbang).</p>
+                `
+            },
+            {
+                level: "Level 2: Dua Langkah & Variabel",
+                timeLimit: 90,
+                points: 150,
+                questionText: "Jika diketahui $4x - 3 = 13$, berapakah nilai dari bentuk $2x + 1$?",
+                options: [
+                    "$x = 4$",
+                    "$9$",
+                    "$8$",
+                    "$11$"
+                ],
+                correctIdx: 1,
+                explanation: `
+                    <p><strong>Langkah 1 (Cari $x$):</strong> Dari $4x - 3 = 13$, tambahkan $3$ pada kedua lengan $\\Rightarrow 4x = 16 \\Rightarrow x = 4$.</p>
+                    <p><strong>Langkah 2 (Substitusi Nilai):</strong> Masukkan $x = 4$ ke dalam ekspresi $2x + 1$.</p>
+                    <p class="bg-purple-950 p-2 rounded border border-purple-500/40 font-mono text-amber-300 text-center">
+                        $2(4) + 1 = 8 + 1 = 9$
+                    </p>
+                `
+            },
+
+            // Level 3: Hard / Word Problems (120s)
+            {
+                level: "Level 3: Soal Cerita & Pemodelan",
+                timeLimit: 120,
+                points: 200,
+                questionText: "Budi membeli $3$ buah buku tulis yang sama dan membayar dengan uang $\\text{Rp } 20.000,00$. Ia mendapat uang kembalian $\\text{Rp } 5.000,00$. Jika harga $1$ buku tulis adalah $x$, model persamaan linear yang tepat adalah...",
+                options: [
+                    "$3x + 5.000 = 20.000$",
+                    "$3x - 5.000 = 20.000$",
+                    "$x + 5.000 = 20.000$",
+                    "$3x = 20.000 + 5.000$"
+                ],
+                correctIdx: 0,
+                explanation: `
+                    <p><strong>Konsep Timbangan Belanja:</strong> Total Belanjaan $+$ Kembalian $=$ Total Uang Dibayar.</p>
+                    <p><strong>Lengan Kiri:</strong> Harga $3$ buku ($3x$) $+$ Kembalian ($\\text{Rp } 5.000$).</p>
+                    <p><strong>Lengan Kanan:</strong> Uang pembayaran ($\\text{Rp } 20.000$).</p>
+                    <p class="bg-purple-950 p-2 rounded border border-purple-500/40 font-mono text-amber-300 text-center">
+                        $3x + 5.000 = 20.000$
+                    </p>
+                `
+            },
+            {
+                level: "Level 3: Soal Cerita & Pemodelan",
+                timeLimit: 120,
+                points: 200,
+                questionText: "Umur Ayah adalah $3$ kali umur Budi. Selisih umur Ayah dan Budi adalah $30$ tahun. Jika umur Budi dimisalkan $x$, model persamaan dan umur Budi berturut-turut adalah...",
+                options: [
+                    "$3x + x = 30$ dan Umur Budi $= 15$ tahun",
+                    "$3x - x = 30$ dan Umur Budi $= 15$ tahun",
+                    "$3x - x = 30$ dan Umur Budi $= 10$ tahun",
+                    "$3x = 30$ dan Umur Budi $= 10$ tahun"
+                ],
+                correctIdx: 1,
+                explanation: `
+                    <p><strong>Pemodelan:</strong> Umur Budi $= x$, Umur Ayah $= 3x$.</p>
+                    <p><strong>Selisih Umur:</strong> Umur Ayah $-$ Umur Budi $= 30 \\Rightarrow 3x - x = 30$.</p>
+                    <p><strong>Penyelesaian:</strong> $2x = 30 \\Rightarrow x = 15$ tahun.</p>
+                `
+            },
+            {
+                level: "Level 3: Soal Cerita & Pemodelan",
+                timeLimit: 120,
+                points: 200,
+                questionText: "Perhatikan langkah-langkah penyelesaian persamaan $2x + 8 = 20$ berikut:<br>(1) Kedua ruas dibagi $2$ sehingga $x = 6$.<br>(2) Tuliskan persamaan awal: $2x + 8 = 20$.<br>(3) Kedua ruas dikurangi $8$ sehingga $2x = 12$.<br>Urutan langkah penyelesaian yang benar dan runtut adalah...",
+                options: [
+                    "(2) $\\rightarrow$ (1) $\\rightarrow$ (3)",
+                    "(3) $\\rightarrow$ (2) $\\rightarrow$ (1)",
+                    "(2) $\\rightarrow$ (3) $\\rightarrow$ (1)",
+                    "(1) $\\rightarrow$ (2) $\\rightarrow$ (3)"
+                ],
+                correctIdx: 2,
+                explanation: `
+                    <p><strong>Urutan Runtut & Sistematis:</strong></p>
+                    <p>1. Tulis persamaan awal (2): $2x + 8 = 20$.</p>
+                    <p>2. Kurangi kedua lengan timbangan dengan $8$ (3): $2x = 12$.</p>
+                    <p>3. Bagi kedua lengan timbangan dengan $2$ (1): $x = 6$.</p>
+                    <p><strong>Urutan Tepat:</strong> (2) $\\rightarrow$ (3) $\\rightarrow$ (1).</p>
+                `
+            }
+        ];
+
+        function startGame() {
+            playSound('click');
+            const teamA = document.getElementById('teamANameInput').value.trim();
+            const teamB = document.getElementById('teamBNameInput').value.trim();
+
+            if (teamA) gameState.teamAName = teamA;
+            if (teamB) gameState.teamBName = teamB;
+
+            gameState.scoreA = 0;
+            gameState.scoreB = 0;
+            gameState.currentQuestionIdx = 0;
+            gameState.activeTeam = 'A';
+
+            updateScoresUI();
+            initGridItems();
+
+            document.getElementById('startScreen').classList.add('hidden');
+            const gameScreen = document.getElementById('gameScreen');
+            gameScreen.classList.remove('hidden');
+            gameScreen.classList.add('flex');
+
+            loadQuestion(0);
+        }
+
+        function setActiveTeam(team) {
+            playSound('click');
+            gameState.activeTeam = team;
+            
+            const btnA = document.getElementById('btnSelectTeamA');
+            const btnB = document.getElementById('btnSelectTeamB');
+            const turnInd = document.getElementById('turnIndicator');
+
+            if (team === 'A') {
+                btnA.className = "px-4 py-1.5 rounded-xl text-xs font-black transition bg-red-600 text-white shadow";
+                btnB.className = "px-4 py-1.5 rounded-xl text-xs font-black transition bg-purple-900 text-purple-300 hover:text-white";
+                turnInd.textContent = `🎯 Turn: ${gameState.teamAName}`;
+                turnInd.className = "mt-1 text-xs font-extrabold text-red-400 tracking-wide uppercase";
+            } else {
+                btnB.className = "px-4 py-1.5 rounded-xl text-xs font-black transition bg-blue-600 text-white shadow";
+                btnA.className = "px-4 py-1.5 rounded-xl text-xs font-black transition bg-purple-900 text-purple-300 hover:text-white";
+                turnInd.textContent = `🎯 Turn: ${gameState.teamBName}`;
+                turnInd.className = "mt-1 text-xs font-extrabold text-blue-400 tracking-wide uppercase";
+            }
+        }
+
+        function loadQuestion(index) {
+            if (index >= questionsData.length) {
+                showVictoryScreen();
+                return;
+            }
+
+            const q = questionsData[index];
+            document.getElementById('levelBadge').textContent = q.level;
+            document.getElementById('questionNumBadge').textContent = `Soal ${index + 1} dari ${questionsData.length}`;
+            document.getElementById('questionPointsBadge').textContent = `+${q.points} Poin`;
+            document.getElementById('questionText').innerHTML = q.questionText;
+
+            for (let i = 0; i < 4; i++) {
+                document.getElementById(`option${i}`).innerHTML = q.options[i];
+            }
+
+            setActiveTeam(gameState.activeTeam);
+            startTimer(q.timeLimit);
+            renderMath();
+        }
+
+        function startTimer(seconds) {
+            clearInterval(gameState.timerInterval);
+            gameState.timer = seconds;
+            document.getElementById('timerDisplay').textContent = `${gameState.timer}s`;
+
+            gameState.timerInterval = setInterval(() => {
+                gameState.timer--;
+                document.getElementById('timerDisplay').textContent = `${gameState.timer}s`;
+                
+                if (gameState.timer <= 10 && gameState.timer > 0) {
+                    playSound('tick');
+                }
+
+                if (gameState.timer <= 0) {
+                    clearInterval(gameState.timerInterval);
+                    playSound('wrong');
+                    showReviewModal(false, questionsData[gameState.currentQuestionIdx], true);
+                }
+            }, 1000);
+        }
+
+        function selectOption(optionIdx) {
+            playSound('click');
+            gameState.selectedOptionIdx = optionIdx;
+            const activeTeamName = gameState.activeTeam === 'A' ? gameState.teamAName : gameState.teamBName;
+
+            document.getElementById('confirmTeamName').textContent = activeTeamName;
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            playSound('click');
+            document.getElementById('confirmModal').classList.add('hidden');
+        }
+
+        function processConfirmedAnswer() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            clearInterval(gameState.timerInterval);
+
+            const q = questionsData[gameState.currentQuestionIdx];
+            const isCorrect = gameState.selectedOptionIdx === q.correctIdx;
+
+            if (isCorrect) {
+                playSound('correct');
+                if (gameState.activeTeam === 'A') gameState.scoreA += q.points;
+                else gameState.scoreB += q.points;
+                updateScoresUI();
+                showReviewModal(true, q);
+            } else {
+                playSound('wrong');
+                showReviewModal(false, q);
+            }
+        }
+
+        function updateScoresUI() {
+            document.getElementById('scoreTeamA').textContent = gameState.scoreA;
+            document.getElementById('scoreTeamB').textContent = gameState.scoreB;
+            document.getElementById('displayTeamA').textContent = gameState.teamAName;
+            document.getElementById('displayTeamB').textContent = gameState.teamBName;
+        }
+
+        function renderMath() {
+            try {
+                if (window.renderMathInElement) {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+            } catch (err) {
+                console.warn("Math rendering error:", err);
+            }
+        }
+
+        function showReviewModal(isCorrect, questionObj, isTimeout = false) {
+            const reviewHeader = document.getElementById('reviewResultHeader');
+            const teamName = gameState.activeTeam === 'A' ? gameState.teamAName : gameState.teamBName;
+            const beam = document.getElementById('scaleBeamGroup');
+
+            if (beam) {
+                if (isCorrect) {
+                    beam.style.transform = 'rotate(0deg)';
+                } else {
+                    beam.style.transform = 'rotate(-8deg)';
+                }
+            }
+
+            if (isTimeout) {
+                reviewHeader.className = "text-center p-4 rounded-2xl mb-6 font-black text-2xl sm:text-3xl bg-amber-500/20 text-amber-300 border border-amber-500/50";
+                reviewHeader.innerHTML = "⏳ WAKTU HABIS! Mari Pelajari Konsep Timbangan!";
+            } else if (isCorrect) {
+                reviewHeader.className = "text-center p-4 rounded-2xl mb-6 font-black text-2xl sm:text-3xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/50";
+                reviewHeader.innerHTML = `🎉 JAWABAN BENAR! ${teamName} +${questionObj.points} POIN!`;
+            } else {
+                reviewHeader.className = "text-center p-4 rounded-2xl mb-6 font-black text-2xl sm:text-3xl bg-red-500/20 text-red-300 border border-red-500/50";
+                reviewHeader.innerHTML = `❌ JAWABAN KURANG TEPAT! Simak Ulasan Timbangan!`;
+            }
+
+            document.getElementById('reviewExplanationContent').innerHTML = questionObj.explanation;
+            document.getElementById('reviewModal').classList.remove('hidden');
+            setTimeout(renderMath, 50);
+        }
+
+        function nextQuestion() {
+            playSound('click');
+            document.getElementById('reviewModal').classList.add('hidden');
+            
+            gameState.activeTeam = gameState.activeTeam === 'A' ? 'B' : 'A';
+            gameState.currentQuestionIdx++;
+            loadQuestion(gameState.currentQuestionIdx);
+        }
+
+        function initGridItems() {
+            const types = [
+                { title: "+100 Poin", value: 100, type: "points", icon: "⭐" },
+                { title: "+150 Poin", value: 150, type: "points", icon: "🌟" },
+                { title: "+200 Poin", value: 200, type: "points", icon: "👑" },
+                { title: "2x Double Points!", value: 2, type: "double", icon: "🚀" },
+                { title: "Kotak Bom (-100 Poin)", value: -100, type: "points", icon: "💣" },
+                { title: "Tukar Skor Tim!", value: 0, type: "swap", icon: "🔄" },
+                { title: "+50 Poin Gratis", value: 50, type: "points", icon: "🎈" }
+            ];
+
+            gameState.gridItems = [];
+            for (let i = 0; i < 25; i++) {
+                const randomItem = types[Math.floor(Math.random() * types.length)];
+                gameState.gridItems.push(randomItem);
+            }
+            gameState.openedGridCells.clear();
+            renderGridBoard();
+        }
+
+        function renderGridBoard() {
+            const container = document.getElementById('gridBoardContainer');
+            container.innerHTML = '';
+
+            for (let i = 0; i < 25; i++) {
+                const isOpened = gameState.openedGridCells.has(i);
+                const item = gameState.gridItems[i];
+
+                const cell = document.createElement('div');
+                cell.className = `grid-cell h-16 sm:h-20 w-full ${isOpened ? 'flipped' : ''}`;
+                cell.onclick = () => flipGridCell(i);
+
+                cell.innerHTML = `
+                    <div class="grid-inner relative w-full h-full rounded-2xl shadow-lg border border-purple-400/40">
+                        <div class="grid-front absolute inset-0 bg-gradient-to-br from-purple-800 to-indigo-900 rounded-2xl flex items-center justify-center font-black text-amber-300 text-lg hover:brightness-125">
+                            ${i + 1}
+                        </div>
+                        <div class="grid-back absolute inset-0 bg-amber-400 text-black rounded-2xl flex flex-col items-center justify-center p-1 text-center font-bold text-xs">
+                            <span class="text-base">${item.icon}</span>
+                            <span class="leading-tight">${item.title}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(cell);
+            }
+        }
+
+        function flipGridCell(index) {
+            if (gameState.openedGridCells.has(index)) return;
+
+            playSound('reveal');
+            gameState.openedGridCells.add(index);
+            renderGridBoard();
+
+            const item = gameState.gridItems[index];
+            const resultBox = document.getElementById('gridResultBox');
+            resultBox.classList.remove('hidden');
+
+            const activeTeamName = gameState.activeTeam === 'A' ? gameState.teamAName : gameState.teamBName;
+
+            if (item.type === 'points') {
+                if (gameState.activeTeam === 'A') gameState.scoreA += item.value;
+                else gameState.scoreB += item.value;
+                resultBox.innerHTML = `🎉 ${activeTeamName} membuka Kotak #${index + 1} dan mendapatkan <strong>${item.title}</strong>!`;
+            } else if (item.type === 'double') {
+                if (gameState.activeTeam === 'A') gameState.scoreA *= 2;
+                else gameState.scoreB *= 2;
+                resultBox.innerHTML = `🚀 WAH! Skor ${activeTeamName} DILIPATGANDAKAN (2x)!`;
+            } else if (item.type === 'swap') {
+                const temp = gameState.scoreA;
+                gameState.scoreA = gameState.scoreB;
+                gameState.scoreB = temp;
+                resultBox.innerHTML = `🔄 WOW! SKOR KEDUA TIM DITUKAR! DRAMATIS!`;
+            }
+
+            updateScoresUI();
+        }
+
+        function openGridModal() {
+            playSound('click');
+            document.getElementById('gridResultBox').classList.add('hidden');
+            document.getElementById('gridModal').classList.remove('hidden');
+        }
+
+        function openGridModalFromReview() {
+            document.getElementById('reviewModal').classList.add('hidden');
+            openGridModal();
+        }
+
+        function closeGridModal() {
+            playSound('click');
+            document.getElementById('gridModal').classList.add('hidden');
+        }
+
+        function showVictoryScreen() {
+            playSound('correct');
+            if (window.confetti) {
+                confetti({
+                    particleCount: 120,
+                    spread: 80,
+                    origin: { y: 0.6 }
+                });
+            }
+
+            let winnerName, winnerScore, runnerName, runnerScore;
+            if (gameState.scoreA >= gameState.scoreB) {
+                winnerName = gameState.teamAName;
+                winnerScore = gameState.scoreA;
+                runnerName = gameState.teamBName;
+                runnerScore = gameState.scoreB;
+            } else {
+                winnerName = gameState.teamBName;
+                winnerScore = gameState.scoreB;
+                runnerName = gameState.teamAName;
+                runnerScore = gameState.scoreA;
+            }
+
+            document.getElementById('p1Name').textContent = winnerName;
+            document.getElementById('p1Score').textContent = `${winnerScore} Poin`;
+            document.getElementById('p2Name').textContent = runnerName;
+            document.getElementById('p2Score').textContent = `${runnerScore} Poin`;
+
+            document.getElementById('victoryModal').classList.remove('hidden');
+        }
+
+        function restartGame() {
+            playSound('click');
+            document.getElementById('victoryModal').classList.add('hidden');
+            document.getElementById('gameScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.remove('flex');
+            document.getElementById('startScreen').classList.remove('hidden');
+        }
+
+        window.onload = function() {
+            renderMath();
+        };
+    </script>
+
+    <!-- Watermark / Signature -->
+    <div class="fixed bottom-3 right-4 z-40 bg-[#130048]/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-purple-500/40 text-amber-300 font-extrabold text-xs shadow-lg pointer-events-none select-none tracking-wider flex items-center gap-1.5">
+        <span>🎮</span>
+        <span>Game Depry</span>
+    </div>
+</body>
+</html>
